@@ -12,7 +12,7 @@ use App\Entity\Book;
 
 class BookController extends AbstractController
 {
-    #[Route('api/books', name: 'app_book',methods:['GET'])]
+    #[Route('api/books', name: 'list_book',methods:['GET'])]
     public function getBookList(BookRepository $bookRepository, SerializerInterface $serializer): JsonResponse
     {
         $books = $bookRepository->findAll();
@@ -21,7 +21,7 @@ class BookController extends AbstractController
         return new JsonResponse($jsonBooks, Response::HTTP_OK, [], true);
     }
 
-    #[Route('/api/books/{id}', name: 'detailBook', methods: ['GET'])]
+    #[Route('/api/books/{id}', name: 'detail_book', methods: ['GET'])]
     public function getDetailBook(int $id, SerializerInterface $serializer, BookRepository $bookRepository): JsonResponse {
 
         $book = $bookRepository->find($id);
