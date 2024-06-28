@@ -9,6 +9,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\HttpFoundation\Response;
 use App\Entity\Book;
+use Doctrine\ORM\EntityManagerInterface;
 
 class BookController extends AbstractController
 {
@@ -31,5 +32,14 @@ class BookController extends AbstractController
             return new JsonResponse($jsonBook, Response::HTTP_OK, [], true);
         }
         return new JsonResponse(null, Response::HTTP_NOT_FOUND);
+   }
+
+   #[Route('/api/books/{id}', name: 'delete_book', methods: ['DELETE'])]
+   public function deleteBook(Book $book, EntityManagerInterface $em): JsonResponse 
+   {
+       $em->remove($book);
+       $em->flush();
+
+       return new JsonResponse(null, Response::HTTP_NO_CONTENT);
    }
 }
