@@ -10,6 +10,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Serializer\SerializerInterface;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 class AuthorController extends AbstractController
 {
@@ -34,6 +36,7 @@ class AuthorController extends AbstractController
 
         return new JsonResponse(null, Response::HTTP_NOT_FOUND);
     }
+    
 
     #[Route('/api/authors/{id}', name: 'delete_author', methods: ['DELETE'])]
     public function deleteBook(Author $author, EntityManagerInterface $em): JsonResponse 
@@ -42,6 +45,30 @@ class AuthorController extends AbstractController
         $em->flush();
  
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    #[Route('/api/authors',name:'create_author',methods:['POST'])]
+    public function createAuthor(
+        Request $request,
+        SerializerInterface $serializerInterface,
+        EntityManagerInterface $entityManagerInterface, 
+        UrlGeneratorInterface $urlGeneratorInterface,
+    ) : JsonResponse 
+    {
+        $author = $serializerInterface->deserialize($request->getContent(),Author::class,'json');
+
+        //$content = $request->toArray();
+
+        // Insertion en BDD
+        $entityManagerInterface->persist($author);
+        $entityManagerInterface->flush();
+        
+        // Réponse
+        $jsonAuthor = $serializerInterface->serialize($author,'json',['groups'=>'getBooks']);
+        $location = $urlGeneratorInterface->generate('detail_author',['id'=>$author->getId()],UrlGeneratorInterface::ABSOLUTE_PATH);
+        
+        return new JsonResponse($jsonAuthor,Response::HTTP_CREATED,['Location'=>$location],true);
+
     }
 
 
