@@ -7,6 +7,8 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Validator\Constraints as Assert;
+
 
 #[ORM\Entity(repositoryClass: BookRepository::class)]
 class Book
@@ -19,6 +21,8 @@ class Book
 
     #[ORM\Column(length: 255)]
     #[Groups(["getBooks","getAuthors"])]
+    #[Assert\NotBlank(message: "The title of the book is required")]
+    #[Assert\Length(min: 1, max: 255, minMessage: "The title must be at least {{ limit }} characters long", maxMessage: "The title cannot be more than {{ limit }} characters")]
     private ?string $title = null;
 
     #[ORM\Column(length: 255, nullable: true)]

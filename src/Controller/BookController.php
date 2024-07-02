@@ -16,7 +16,9 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Serializer;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
-
+use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+use Symfony\Component\Validator\Constraints\ValidValidator;
 
 class BookController extends AbstractController
 {
@@ -38,6 +40,7 @@ class BookController extends AbstractController
             $jsonBook = $serializer->serialize($book, 'json',['groups'=>'getBooks']);
             return new JsonResponse($jsonBook, Response::HTTP_OK, [], true);
         }
+
         return new JsonResponse(null, Response::HTTP_NOT_FOUND);
    }
 
@@ -58,11 +61,21 @@ class BookController extends AbstractController
     SerializerInterface $serializerInterface,
     EntityManagerInterface $entityManagerInterface, 
     UrlGeneratorInterface $urlGeneratorInterface,
-    AuthorRepository $authorRepository ): JsonResponse 
+    AuthorRepository $authorRepository ,
+    ValidatorInterface $validatorInterface
+    ): JsonResponse 
    {
     
         // Récupérer les données $_POST  
         $book = $serializerInterface->deserialize($request->getContent(),Book::class,'json');
+
+        // On vérifie les erreurs
+        $errors = $validatorInterface->validate($book);
+
+        if ($errors->count() > 0) {
+            return new JsonResponse($serializerInterface->serialize($errors, 'json'), JsonResponse::HTTP_BAD_REQUEST, [],true);
+            //throw new HttpException(JsonResponse::HTTP_BAD_REQUEST, "La requête est invalide");
+        }        
 
         // Data POST en array
         $content = $request->toArray();
@@ -96,16 +109,39 @@ class BookController extends AbstractController
     Request $request,
     SerializerInterface $serializerInterface,
     EntityManagerInterface $entityManagerInterface, 
-    AuthorRepository $authorRepository
+    AuthorRepository $authorRepository,
+    ValidatorInterface $validator
    ) : JsonResponse {
+
+    $rawContent = $request->getContent();
+
+    $data = json_decode($rawContent, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        throw new HttpException(JsonResponse::HTTP_BAD_REQUEST, "Invalid JSON data");
+    }
+
+    $requiredKeys = ['title', 'cover_text']; 
+    foreach ($requiredKeys as $key) {
+        if (!array_key_exists($key, $data)) {
+            throw new HttpException(JsonResponse::HTTP_BAD_REQUEST, "Missing required field: $key");
+        }
+    }
 
     // Récuperer les données et deserialisation
     $updatedBook = $serializerInterface->deserialize(
-        $request->getContent(),
+        $rawContent,
         Book::class,
         'json',
         [AbstractNormalizer::OBJECT_TO_POPULATE => $toUpdateBook]
     );
+
+    // Valider les données désérialisées
+    $errors = $validator->validate($updatedBook);
+
+    // Si des erreurs de validation sont présentes, renvoyer une réponse d'erreur
+    if ($errors->count() > 0) {
+        throw new HttpException(JsonResponse::HTTP_BAD_REQUEST, $serializerInterface->serialize($errors, 'json'));
+    }
 
     // Récuperer id de l'auteur + maj 
     $content = $request->toArray();

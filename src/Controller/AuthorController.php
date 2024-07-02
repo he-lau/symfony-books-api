@@ -13,6 +13,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class AuthorController extends AbstractController
 {
@@ -55,11 +57,16 @@ class AuthorController extends AbstractController
         SerializerInterface $serializerInterface,
         EntityManagerInterface $entityManagerInterface, 
         UrlGeneratorInterface $urlGeneratorInterface,
+        ValidatorInterface $validator
     ) : JsonResponse 
     {
         $author = $serializerInterface->deserialize($request->getContent(),Author::class,'json');
 
-        //$content = $request->toArray();
+        $errors = $validator->validate($author);
+
+        if ($errors->count() > 0) {
+            return new JsonResponse($serializerInterface->serialize($errors, 'json'), JsonResponse::HTTP_BAD_REQUEST, [], true);
+        }     
 
         // Insertion en BDD
         $entityManagerInterface->persist($author);
@@ -74,17 +81,39 @@ class AuthorController extends AbstractController
     }
 
     #[Route('api/authors/{id}',name:'update_author',methods:['PUT'])]
-    public function updateAuthor(Author $author,Request $request, SerializerInterface $serializer, EntityManagerInterface $manager, ) : JsonResponse {
+    public function updateAuthor(Author $author,Request $request, SerializerInterface $serializer, EntityManagerInterface $manager, ValidatorInterface $validator) : JsonResponse {
 
         $rawContent = $request->getContent();
 
-        $serializer->deserialize($rawContent,Author::class,'json',[AbstractNormalizer::OBJECT_TO_POPULATE => $author]);
+        $data = json_decode($rawContent, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new HttpException(JsonResponse::HTTP_BAD_REQUEST, "Invalid JSON data");
+        }
+
+        $requiredKeys = ['first_name', 'last_name']; 
+        foreach ($requiredKeys as $key) {
+            if (!array_key_exists($key, $data)) {
+                throw new HttpException(JsonResponse::HTTP_BAD_REQUEST, "Missing required field: $key");
+            }
+        }
+        
+        $updatedAuthor = $serializer->deserialize($rawContent,Author::class,'json',[AbstractNormalizer::OBJECT_TO_POPULATE => $author]);
+
+        // Valider les données désérialisées
+        $errors = $validator->validate($updatedAuthor);
+
+        // Si des erreurs de validation sont présentes, renvoyer une réponse d'erreur
+        if ($errors->count() > 0) {
+            throw new HttpException(JsonResponse::HTTP_BAD_REQUEST, $serializer->serialize($errors, 'json'));
+        }
     
         // orm query
-        $manager->persist($author);
+        $manager->persist($updatedAuthor);
         $manager->flush();        
 
-        return new JsonResponse(null, JsonResponse::HTTP_NO_CONTENT);
+        //return new JsonResponse(null, JsonResponse::HTTP_NO_CONTENT);
+        throw new HttpException(JsonResponse::HTTP_NO_CONTENT);
+
     }
 
 
