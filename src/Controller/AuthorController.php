@@ -12,6 +12,7 @@ use Symfony\Component\Serializer\SerializerInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 
 class AuthorController extends AbstractController
 {
@@ -38,6 +39,7 @@ class AuthorController extends AbstractController
     }
     
 
+    // TODO : suppression des livres en cascade
     #[Route('/api/authors/{id}', name: 'delete_author', methods: ['DELETE'])]
     public function deleteBook(Author $author, EntityManagerInterface $em): JsonResponse 
     {
@@ -70,6 +72,22 @@ class AuthorController extends AbstractController
         return new JsonResponse($jsonAuthor,Response::HTTP_CREATED,['Location'=>$location],true);
 
     }
+
+    #[Route('api/authors/{id}',name:'update_author',methods:['PUT'])]
+    public function updateAuthor(Author $author,Request $request, SerializerInterface $serializer, EntityManagerInterface $manager, ) : JsonResponse {
+
+        $rawContent = $request->getContent();
+
+        $serializer->deserialize($rawContent,Author::class,'json',[AbstractNormalizer::OBJECT_TO_POPULATE => $author]);
+    
+        // orm query
+        $manager->persist($author);
+        $manager->flush();        
+
+        return new JsonResponse(null, JsonResponse::HTTP_NO_CONTENT);
+    }
+
+
 
 
 }

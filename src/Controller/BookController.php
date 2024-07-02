@@ -11,9 +11,12 @@ use Symfony\Component\HttpFoundation\Response;
 use App\Entity\Book;
 use App\Repository\AuthorRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use phpDocumentor\Reflection\Types\AbstractList;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Serializer;
+use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
+
 
 class BookController extends AbstractController
 {
@@ -64,13 +67,14 @@ class BookController extends AbstractController
         // Data POST en array
         $content = $request->toArray();
 
-        // Retrouvé l'auteur
-        $idAuthor = $content['idAuthor'] ? $content['idAuthor'] : -1;
-        $author = $authorRepository->find($idAuthor);
-
-        // Si existe, setter
-        if($author) {
-            $book->addAuthor($author);
+        if(isset($content['idAuthors']) && is_array($content['idAuthors'])) {
+            $idAuthors = $content['idAuthors'];
+    
+            // Ajoutez les auteurs
+            foreach($idAuthors as $id) {
+                $author = $authorRepository->find($id);
+                $book->addAuthor($author);
+            }
         }
 
         // Insertion en BDD
@@ -84,4 +88,49 @@ class BookController extends AbstractController
         return new JsonResponse($jsonBook,Response::HTTP_CREATED,['Location'=>$location],true);
 
    }
+
+   #[Route('/api/books/{id}',name:'update_book',methods:['PUT'])]
+   public function updateBook
+   (
+    Book $toUpdateBook,
+    Request $request,
+    SerializerInterface $serializerInterface,
+    EntityManagerInterface $entityManagerInterface, 
+    AuthorRepository $authorRepository
+   ) : JsonResponse {
+
+    // Récuperer les données et deserialisation
+    $updatedBook = $serializerInterface->deserialize(
+        $request->getContent(),
+        Book::class,
+        'json',
+        [AbstractNormalizer::OBJECT_TO_POPULATE => $toUpdateBook]
+    );
+
+    // Récuperer id de l'auteur + maj 
+    $content = $request->toArray();
+
+    if(isset($content['idAuthors']) && is_array($content['idAuthors'])) {
+        $idAuthors = $content['idAuthors'];
+
+        // Vider les auteurs
+        foreach ($toUpdateBook->getAuthors() as $author) {
+            $toUpdateBook->removeAuthor($author);
+        }
+
+        // Ajoutez les auteurs
+        foreach($idAuthors as $id) {
+            $author = $authorRepository->find($id);
+            $updatedBook->addAuthor($author);
+        }
+    }
+
+    // orm query
+    $entityManagerInterface->persist($updatedBook);
+    $entityManagerInterface->flush();
+
+    return new JsonResponse(null, JsonResponse::HTTP_NO_CONTENT);
+
+   }
+
 }
