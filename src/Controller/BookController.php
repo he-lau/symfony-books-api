@@ -19,6 +19,7 @@ use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\Validator\Constraints\ValidValidator;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 class BookController extends AbstractController
 {
@@ -56,6 +57,7 @@ class BookController extends AbstractController
 
    // https://symfony.com/doc/current/components/http_foundation.html
    #[Route('/api/books',name:'create_book',methods:['POST'])]
+   #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour créer un livre')]
    public function createBook(
     Request $request,
     SerializerInterface $serializerInterface,
