@@ -7,3 +7,4 @@ Une simple API de livres.
 - `symfony console make:subscriber` : Gestion des événements (observeur,observable)
 - `composer require symfony/validator`
 - `composer require doctrine/annotations`
+- `composer require lexik/jwt-authentication-bundle` : JWT (JSON Web Token)
