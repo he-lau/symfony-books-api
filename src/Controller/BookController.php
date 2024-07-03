@@ -23,10 +23,21 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 class BookController extends AbstractController
 {
+
+    /**
+     * TODO : 
+     *  - pagination avec message d'erreur
+     *  - KnpPaginator , PagerFanta
+     */
     #[Route('api/books', name: 'list_book',methods:['GET'])]
-    public function getBookList(BookRepository $bookRepository, SerializerInterface $serializer): JsonResponse
+    public function getBookList(BookRepository $bookRepository, SerializerInterface $serializer, Request $request): JsonResponse
     {
-        $books = $bookRepository->findAll();
+        // $_GET
+        $page = $request->get('page', 1);
+        $limit = $request->get('limit', 3);
+
+        //$books = $bookRepository->findAll();
+        $books = $bookRepository->findAllWithPagination($page,$limit);
         $jsonBooks = $serializer->serialize($books,"json",['groups'=>'getBooks']); 
 
         return new JsonResponse($jsonBooks, Response::HTTP_OK, [], true);
