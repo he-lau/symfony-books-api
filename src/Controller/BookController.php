@@ -12,6 +12,7 @@ use App\Entity\Book;
 use App\Repository\AuthorRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use phpDocumentor\Reflection\Types\AbstractList;
+use Symfony\Component\Cache\Adapter\TagAwareAdapter;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Serializer;
@@ -20,6 +21,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\Validator\Constraints\ValidValidator;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 
 class BookController extends AbstractController
 {
@@ -30,15 +33,36 @@ class BookController extends AbstractController
      *  - KnpPaginator , PagerFanta
      */
     #[Route('api/books', name: 'list_book',methods:['GET'])]
-    public function getBookList(BookRepository $bookRepository, SerializerInterface $serializer, Request $request): JsonResponse
+    public function getBookList(BookRepository $bookRepository, SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cache): JsonResponse
     {
         // $_GET
         $page = $request->get('page', 1);
         $limit = $request->get('limit', 3);
 
-        //$books = $bookRepository->findAll();
-        $books = $bookRepository->findAllWithPagination($page,$limit);
-        $jsonBooks = $serializer->serialize($books,"json",['groups'=>'getBooks']); 
+        // generer id avec page & limit
+        $idCache = "getAllBooks-" . $page . "-" . $limit;
+        $dataSource = 'cache';
+
+        // recuperer en cache le resultat si existant, sinon callback
+        $jsonBooks = $cache->get($idCache, function(ItemInterface $item) use ($bookRepository, $page, $limit, $serializer) {
+            
+            // tag pour permettre la gestion plus tard
+            $item->tag("booksCache");
+            $item->expiresAfter(600);
+
+            $dataSource = 'database';
+            header('X-Data-Source: ' . $dataSource);
+
+            $books = $bookRepository->findAllWithPagination($page,$limit);
+
+            return $serializer->serialize($books,"json",['groups'=>'getBooks']); ;
+        });
+
+    // Vérifier si le header X-Data-Source est déjà défini
+    $existingDataSourceHeader = headers_list();
+    if (!in_array('X-Data-Source: database', $existingDataSourceHeader)) {
+        header('X-Data-Source: ' . $dataSource);
+    }
 
         return new JsonResponse($jsonBooks, Response::HTTP_OK, [], true);
     }
@@ -57,8 +81,10 @@ class BookController extends AbstractController
    }
 
    #[Route('/api/books/{id}', name: 'delete_book', methods: ['DELETE'])]
-   public function deleteBook(Book $book, EntityManagerInterface $em): JsonResponse 
+   public function deleteBook(Book $book, EntityManagerInterface $em, TagAwareCacheInterface $cache): JsonResponse 
    {
+        $cache->invalidateTags(['booksCache']);
+
         $em->remove($book);
         $em->flush();
 
