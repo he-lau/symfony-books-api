@@ -8,5 +8,8 @@ return [
     Doctrine\Bundle\FixturesBundle\DoctrineFixturesBundle::class => ['dev' => true, 'test' => true],
     Symfony\Bundle\SecurityBundle\SecurityBundle::class => ['all' => true],
     Lexik\Bundle\JWTAuthenticationBundle\LexikJWTAuthenticationBundle::class => ['all' => true],
-    JMS\SerializerBundle\JMSSerializerBundle::class => ['all' => true]
+    JMS\SerializerBundle\JMSSerializerBundle::class => ['all' => true],
+
+    // IMPORTANT : BUG : https://github.com/willdurand/BazingaHateoasBundle/issues/108
+    //Bazinga\Bundle\HateoasBundle\BazingaHateoasBundle::class => ['all' => true],
 ];

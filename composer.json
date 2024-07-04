@@ -9,7 +9,7 @@
     "php": ">=8.2",
     "ext-ctype": "*",
     "ext-iconv": "*",
-    "doctrine/annotations": "^2.0",
+    "doctrine/annotations": "*",
     "doctrine/dbal": "^3",
     "doctrine/doctrine-bundle": "^2.12",
     "doctrine/doctrine-migrations-bundle": "^3.3",
@@ -28,7 +28,7 @@
     "symfony/serializer": "7.1.*",
     "symfony/validator": "7.1.*",
     "symfony/yaml": "7.1.*",
-    "willdurand/hateoas-bundle": "^2.6"
+    "willdurand/hateoas-bundle": "*"
   },
   "require-dev": {
     "doctrine/doctrine-fixtures-bundle": "^3.6",
