@@ -6,7 +6,6 @@ use App\Repository\BookRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\HttpFoundation\Response;
 use App\Entity\Book;
 use App\Repository\AuthorRepository;
@@ -15,7 +14,6 @@ use phpDocumentor\Reflection\Types\AbstractList;
 use Symfony\Component\Cache\Adapter\TagAwareAdapter;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Symfony\Component\Serializer\Serializer;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -23,6 +21,11 @@ use Symfony\Component\Validator\Constraints\ValidValidator;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
+
+//use Symfony\Component\Serializer\SerializerInterface;
+//use Symfony\Component\Serializer\Serializer;
+use JMS\Serializer\SerializerInterface;
+use JMS\Serializer\SerializationContext;
 
 class BookController extends AbstractController
 {
@@ -48,14 +51,16 @@ class BookController extends AbstractController
             
             // tag pour permettre la gestion plus tard
             $item->tag("booksCache");
-            $item->expiresAfter(600);
+            $item->expiresAfter(1);
 
             $dataSource = 'database';
             header('X-Data-Source: ' . $dataSource);
 
             $books = $bookRepository->findAllWithPagination($page,$limit);
+            $context = SerializationContext::create()->setGroups(['getBooks']);
 
-            return $serializer->serialize($books,"json",['groups'=>'getBooks']); ;
+            //return $serializer->serialize($books,"json",['groups'=>'getBooks']);
+            return $serializer->serialize($books,"json",$context);
         });
 
     // Vérifier si le header X-Data-Source est déjà défini
@@ -73,7 +78,9 @@ class BookController extends AbstractController
         $book = $bookRepository->find($id);
 
         if ($book) {
-            $jsonBook = $serializer->serialize($book, 'json',['groups'=>'getBooks']);
+            $context = SerializationContext::create()->setGroups(['getBooks']);
+            //$jsonBook = $serializer->serialize($book, 'json',['groups'=>'getBooks']);
+            $jsonBook = $serializer->serialize($book, 'json',$context);
             return new JsonResponse($jsonBook, Response::HTTP_OK, [], true);
         }
 
@@ -134,7 +141,8 @@ class BookController extends AbstractController
         $entityManagerInterface->flush();
 
         // Réponse
-        $jsonBook = $serializerInterface->serialize($book,'json',['groups'=>'getBooks']);
+        $context = SerializationContext::create()->setGroups(['getBooks']);
+        $jsonBook = $serializerInterface->serialize($book,'json',$context);
         $location = $urlGeneratorInterface->generate('detail_book',['id'=>$book->getId()],UrlGeneratorInterface::ABSOLUTE_PATH);
 
         return new JsonResponse($jsonBook,Response::HTTP_CREATED,['Location'=>$location],true);
@@ -149,8 +157,9 @@ class BookController extends AbstractController
     SerializerInterface $serializerInterface,
     EntityManagerInterface $entityManagerInterface, 
     AuthorRepository $authorRepository,
-    ValidatorInterface $validator
-   ) : JsonResponse {
+    ValidatorInterface $validator,
+    TagAwareCacheInterface $cache
+    ) : JsonResponse {
 
     $rawContent = $request->getContent();
 
@@ -167,15 +176,19 @@ class BookController extends AbstractController
     }
 
     // Récuperer les données et deserialisation
-    $updatedBook = $serializerInterface->deserialize(
+    $newBook = $serializerInterface->deserialize(
         $rawContent,
         Book::class,
-        'json',
-        [AbstractNormalizer::OBJECT_TO_POPULATE => $toUpdateBook]
+        'json'
     );
 
+    $toUpdateBook->setTitle($newBook->getTitle());
+    $toUpdateBook->setCoverText($newBook->getCoverText());
+
+    
+
     // Valider les données désérialisées
-    $errors = $validator->validate($updatedBook);
+    $errors = $validator->validate($toUpdateBook);
 
     // Si des erreurs de validation sont présentes, renvoyer une réponse d'erreur
     if ($errors->count() > 0) {
@@ -196,13 +209,16 @@ class BookController extends AbstractController
         // Ajoutez les auteurs
         foreach($idAuthors as $id) {
             $author = $authorRepository->find($id);
-            $updatedBook->addAuthor($author);
+            $toUpdateBook->addAuthor($author);
         }
     }
 
     // orm query
-    $entityManagerInterface->persist($updatedBook);
+    $entityManagerInterface->persist($toUpdateBook);
     $entityManagerInterface->flush();
+
+    // On vide le cache. 
+    $cache->invalidateTags(["booksCache"]);
 
     return new JsonResponse(null, JsonResponse::HTTP_NO_CONTENT);
 

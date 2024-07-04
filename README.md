@@ -11,3 +11,4 @@ Une simple API de livres.
 - `openssl genpkey -out config/jwt/private.pem -aes256 -algorithm rsa -pkeyopt rsa _keygen_bits:4096` : Génerer clé avec RSA & chiffrement clé avec AES-256 & taille 4096 bits
 - `openssl pkey -in config/jwt/private.pem -out config/jwt/public.pem -pubout`
 - `php bin/console cache:clear` : vider le cache
+- `composer require willdurand/hateoas-bundle` : HATOAS & JMSSerializer
