@@ -26,6 +26,8 @@ use Symfony\Contracts\Cache\ItemInterface;
 //use Symfony\Component\Serializer\Serializer;
 use JMS\Serializer\SerializerInterface;
 use JMS\Serializer\SerializationContext;
+use App\Service\VersioningService;
+
 
 class BookController extends AbstractController
 {
@@ -36,8 +38,9 @@ class BookController extends AbstractController
      *  - KnpPaginator , PagerFanta
      */
     #[Route('api/books', name: 'list_book',methods:['GET'])]
-    public function getBookList(BookRepository $bookRepository, SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cache): JsonResponse
+    public function getBookList(BookRepository $bookRepository, SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cache, VersioningService $versioningService): JsonResponse
     {
+
         // $_GET
         $page = $request->get('page', 1);
         $limit = $request->get('limit', 3);
@@ -47,7 +50,7 @@ class BookController extends AbstractController
         $dataSource = 'cache';
 
         // recuperer en cache le resultat si existant, sinon callback
-        $jsonBooks = $cache->get($idCache, function(ItemInterface $item) use ($bookRepository, $page, $limit, $serializer) {
+        $jsonBooks = $cache->get($idCache, function(ItemInterface $item) use ($bookRepository, $page, $limit, $serializer, $versioningService) {
             
             // tag pour permettre la gestion plus tard
             $item->tag("booksCache");
@@ -57,7 +60,11 @@ class BookController extends AbstractController
             header('X-Data-Source: ' . $dataSource);
 
             $books = $bookRepository->findAllWithPagination($page,$limit);
+
             $context = SerializationContext::create()->setGroups(['getBooks']);
+            //$context->setVersion("1.0");
+            $context->setVersion($versioningService->getVersion());
+
 
             //return $serializer->serialize($books,"json",['groups'=>'getBooks']);
             return $serializer->serialize($books,"json",$context);
@@ -73,13 +80,14 @@ class BookController extends AbstractController
     }
 
     #[Route('/api/books/{id}', name: 'detail_book', methods: ['GET'])]
-    public function getDetailBook(int $id, SerializerInterface $serializer, BookRepository $bookRepository): JsonResponse {
+    public function getDetailBook(int $id, SerializerInterface $serializer, BookRepository $bookRepository, VersioningService $versioningService): JsonResponse {
 
         $book = $bookRepository->find($id);
 
         if ($book) {
             $context = SerializationContext::create()->setGroups(['getBooks']);
             //$jsonBook = $serializer->serialize($book, 'json',['groups'=>'getBooks']);
+            $context->setVersion($versioningService->getVersion());
             $jsonBook = $serializer->serialize($book, 'json',$context);
             return new JsonResponse($jsonBook, Response::HTTP_OK, [], true);
         } 
@@ -209,7 +217,7 @@ class BookController extends AbstractController
         // Ajoutez les auteurs
         foreach($idAuthors as $id) {
             $author = $authorRepository->find($id);
-            $toUpdateBook->addAuthor($author);
+            $toUpdateBook->addAuthor($author);  
         }
     }
 

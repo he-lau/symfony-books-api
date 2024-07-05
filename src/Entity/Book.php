@@ -5,12 +5,14 @@ namespace App\Entity;
 use App\Repository\BookRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
 //use Symfony\Component\Serializer\Annotation\Groups;
 use JMS\Serializer\Annotation\Groups;
 use Hateoas\Configuration\Annotation as Hateoas;
+use JMS\Serializer\Annotation\Since;
 
 
 /**
@@ -70,6 +72,11 @@ class Book
     #[Groups(["getBooks"])]
     private Collection $authors;
 
+    #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
+    #[Groups(["getBooks","getAuthors"])]
+    #[Since("2.0")]
+    private ?\DateTimeInterface $publish_date = null;
+
     public function __construct()
     {
         $this->authors = new ArrayCollection();
@@ -127,6 +134,18 @@ class Book
         if ($this->authors->removeElement($author)) {
             $author->removeBook($this);
         }
+
+        return $this;
+    }
+
+    public function getPublishDate(): ?\DateTimeInterface
+    {
+        return $this->publish_date;
+    }
+
+    public function setPublishDate(?\DateTimeInterface $publish_date): static
+    {
+        $this->publish_date = $publish_date;
 
         return $this;
     }
